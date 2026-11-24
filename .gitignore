@@ -1,0 +1,26 @@
+# Go
+backend/storage/
+backend/bin/
+# Node
+node_modules/
+web/dist/
+# Flutter
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/ios/Pods/
+# Env
+.env
+*.local
+.DS_Store
+# Build & rilis
+/dist/
+backend/internal/webui/dist/*
+!backend/internal/webui/dist/.gitkeep
+build.env
+tool/build.env
+.build/
+mobile/android/key.properties
+*.jks
+*.keystore

@@ -1,0 +1,63 @@
+name: CI
+on:
+  # Hanya jalan bila kode berubah (README/dokumen saja tidak memicu CI).
+  push:
+    branches: [main]
+    paths: ["backend/**", "web/**", "mobile/**", ".github/workflows/ci.yml"]
+  pull_request:
+    paths: ["backend/**", "web/**", "mobile/**", ".github/workflows/ci.yml"]
+permissions:
+  contents: read
+# Push beruntun pada branch/PR yang sama: run lama dibatalkan, hanya yang terbaru dijalankan.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - run: go vet ./...
+        working-directory: backend
+      - run: go test -race ./...
+        working-directory: backend
+      - name: Build linux arm64 (Orange Pi 4 Pro)
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o /tmp/pestcontrol-api ./cmd/api
+        working-directory: backend
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Cache pub (paket Dart)
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PUB_CACHE || '~/.pub-cache' }}
+          key: pub-${{ runner.os }}-${{ hashFiles('mobile/pubspec.yaml') }}
+          restore-keys: pub-${{ runner.os }}-
+      - run: flutter pub get
+        working-directory: mobile
+      - run: flutter analyze
+        working-directory: mobile
+      - run: flutter test
+        working-directory: mobile

@@ -1,0 +1,21 @@
+[Unit]
+Description=Propestindo - API dan web laporan pest control
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=propestindo
+Group=propestindo
+EnvironmentFile=/etc/propestindo/propestindo.env
+WorkingDirectory=/var/lib/propestindo
+# Folder bin milik user propestindo supaya update dari web bisa mengganti binary.
+ExecStart=/opt/propestindo/bin/pestcontrol-api
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/propestindo /var/lib/propestindo
+
+[Install]
+WantedBy=multi-user.target

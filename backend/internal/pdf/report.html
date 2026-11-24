@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Laporan Kunjungan {{with .R}}{{str .ReportNo}}{{end}}</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 10pt; color: #1d2733; margin: 0; }
+  .en { color: #5b6672; font-weight: normal; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1f7a3a; padding-bottom: 8px; }
+  header img { height: 56px; }
+  header .title { text-align: right; }
+  header h1 { font-size: 15pt; margin: 0; color: #14532d; letter-spacing: .3px; }
+  header h1 .en { display: block; font-size: 11pt; color: #1d2733; }
+  header .meta { font-size: 9pt; margin-top: 4px; }
+  h2 { font-size: 11pt; background: #e8f3ea; color: #14532d; padding: 5px 8px; margin: 14px 0 6px; border-left: 4px solid #c9a227; }
+  h2 .en { font-size: 9.5pt; }
+  table { width: 100%; border-collapse: collapse; }
+  .info td { padding: 3px 6px; vertical-align: top; border-bottom: 1px solid #dfe4e8; }
+  .info td.k { width: 18%; font-weight: bold; }
+  .info td.k small { display: block; font-weight: normal; color: #5b6672; }
+  .grid th { background: #14532d; color: #fff; font-size: 9pt; padding: 5px; text-align: left; }
+  .grid th small { display: block; font-weight: normal; opacity: .85; }
+  .grid td { border: 1px solid #cfd6dc; padding: 4px 5px; vertical-align: top; }
+  .grid tr:nth-child(even) td { background: #f6f8f9; }
+  .lvl-high { color: #b42318; font-weight: bold; }
+  .lvl-medium { color: #b54708; font-weight: bold; }
+  .st-ok { background: #e5f4e4 !important; }
+  .st-check { background: #fdf3d7 !important; }
+  .st-replace { background: #fbe4e2 !important; }
+  .photos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .photos figure { margin: 0; width: 31%; }
+  .photos img { width: 100%; height: 120px; object-fit: cover; border: 1px solid #cfd6dc; }
+  .photos figcaption { font-size: 8pt; color: #5b6672; }
+  .thumbs img { height: 48px; margin: 2px 2px 0 0; border: 1px solid #cfd6dc; }
+  .empty { color: #5b6672; font-style: italic; padding: 4px 6px; }
+  .sign { display: flex; gap: 24px; margin-top: 8px; page-break-inside: avoid; }
+  .sign > div { flex: 1; border: 1px solid #cfd6dc; padding: 8px; text-align: center; }
+  .sign img { height: 70px; }
+  .sign .line { border-top: 1px solid #1d2733; margin-top: 4px; padding-top: 3px; font-weight: bold; }
+  .sign small { color: #5b6672; display: block; }
+  footer { margin-top: 18px; border-top: 1px solid #1f7a3a; padding-top: 5px; font-size: 8pt; text-align: center; color: #5b6672; }
+  section { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+{{$D := .D}}{{$R := .R}}{{$img := .Img}}
+<header>
+  <img src="{{.Logo}}" alt="Propestindo">
+  <div class="title">
+    <h1>LAPORAN KUNJUNGAN PEST CONTROL UMUM <span class="en">General Pest Control Visit Report</span></h1>
+    <div class="meta">No. Laporan / <span class="en">Report No</span>: <b>{{if $R}}{{str $R.ReportNo}}{{else}}-{{end}}</b></div>
+    <div class="meta">Tanggal / <span class="en">Date</span>: {{dateID $D.Visit.ScheduledDate}} <span class="en">/ {{dateEN $D.Visit.ScheduledDate}}</span></div>
+  </div>
+</header>
+
+<h2>1. INFORMASI PELANGGAN &amp; KUNJUNGAN <span class="en">(Customer &amp; Visit Information)</span></h2>
+<table class="info">
+  <tr><td class="k">Nama Pelanggan<small>Customer Name</small></td><td>{{$D.Customer.Name}} &mdash; {{$D.Site.Name}}</td>
+      <td class="k">Tipe Kunjungan<small>Visit Type</small></td><td>{{id $D.Visit.VisitType}} <span class="en">/ {{en $D.Visit.VisitType}}</span></td></tr>
+  <tr><td class="k">Alamat<small>Address</small></td><td colspan="3">{{$D.Site.Address}}</td></tr>
+  <tr><td class="k">Tanggal<small>Visit Date</small></td><td>{{dateID $D.Visit.ScheduledDate}}</td>
+      <td class="k">Waktu<small>Time</small></td><td>{{if $R}}{{clock $R.StartedAt}} &ndash; {{clock $R.FinishedAt}}{{else}}-{{end}} WIB</td></tr>
+  <tr><td class="k">Teknisi<small>Technician</small></td><td>{{with $D.Technician}}{{.Name}}{{with .Code}} / #{{.}}{{end}}{{else}}-{{end}}</td>
+      <td class="k">PIC<small>Client PIC</small></td><td>{{if and $R $R.PICName}}{{str $R.PICName}}{{else if $D.PIC}}{{$D.PIC.Name}}{{else}}-{{end}}</td></tr>
+</table>
+
+{{if $R}}
+<h2>2. RINGKASAN TEMUAN HAMA <span class="en">(Pest Findings Summary)</span></h2>
+{{if $R.Findings}}
+<table class="grid">
+  <tr><th>No</th><th>Hama<small>Pest</small></th><th>Lokasi Temuan<small>Location</small></th><th>Tingkat Infestasi<small>Infestation Level</small></th><th>Status</th><th>Keterangan<small>Remarks</small></th></tr>
+  {{range $i, $f := $R.Findings}}
+  <tr>
+    <td>{{inc $i}}</td>
+    <td><b>{{$f.PestNameID}}</b> <span class="en">/ {{$f.PestNameEN}}</span></td>
+    <td>{{str $f.AreaName}}</td>
+    <td class="lvl-{{$f.Level}}">{{id $f.Level}} <span class="en">({{en $f.Level}})</span></td>
+    <td>{{if $f.IsActive}}Aktif <span class="en">/ Active</span>{{else}}Tidak Aktif <span class="en">/ Inactive</span>{{end}}</td>
+    <td>{{str $f.Remarks}}{{if $f.Attachments}}<div class="thumbs">{{range $f.Attachments}}{{with call $img .ID}}<img src="{{.}}">{{end}}{{end}}</div>{{end}}</td>
+  </tr>
+  {{end}}
+</table>
+{{else}}<div class="empty">Tidak ada temuan hama / No pest findings.</div>{{end}}
+
+<h2>3. LOG TINDAKAN PENGENDALIAN <span class="en">(Treatment Log)</span></h2>
+{{if $R.Treatments}}
+<table class="grid">
+  <tr><th>No</th><th>Metode<small>Method</small></th><th>Area</th><th>Bahan Aktif<small>Active Ingredient</small></th><th>Dosis<small>Dosage</small></th><th>Jumlah Dipakai<small>Qty Used</small></th><th>Alat<small>Equipment</small></th></tr>
+  {{range $i, $t := $R.Treatments}}
+  <tr><td>{{inc $i}}</td><td><b>{{$t.MethodNameID}}</b> <span class="en">/ {{$t.MethodNameEN}}</span></td><td>{{str $t.AreaName}}</td>
+      <td>{{str $t.ChemicalName}}</td><td>{{str $t.DoseText}}</td><td>{{str $t.QuantityUsed}}</td><td>{{str $t.Equipment}}</td></tr>
+  {{end}}
+</table>
+{{else}}<div class="empty">Tidak ada tindakan / No treatment performed.</div>{{end}}
+
+<h2>4. REKOMENDASI TINDAKAN KOREKTIF <span class="en">(Corrective Actions)</span></h2>
+{{if $R.Recommendations}}
+<table class="grid">
+  <tr><th>No</th><th>Kategori<small>Category</small></th><th>Temuan Risiko<small>Risk Finding</small></th><th>Rekomendasi untuk Klien<small>Recommendation for Client</small></th></tr>
+  {{range $i, $c := $R.Recommendations}}
+  <tr><td>{{inc $i}}</td><td><b>{{id $c.Category}}</b> <span class="en">/ {{en $c.Category}}</span></td><td>{{$c.RiskFinding}}</td><td>{{$c.Recommendation}}</td></tr>
+  {{end}}
+</table>
+{{else}}<div class="empty">Tidak ada rekomendasi / No recommendations.</div>{{end}}
+
+<h2>5. STATUS ALAT MONITORING <span class="en">(Equipment Monitoring)</span></h2>
+{{if $R.StationChecks}}
+<table class="grid">
+  <tr><th>Kode<small>Station ID</small></th><th>Jenis<small>Type</small></th><th>Lokasi<small>Location</small></th><th>Status</th><th>Konsumsi Umpan<small>Bait Consumption</small></th><th>Temuan<small>Finding</small></th></tr>
+  {{range $R.StationChecks}}
+  <tr><td><b>{{.StationCode}}</b></td><td>{{.EquipmentType}}</td><td>{{str .AreaName}}</td>
+      <td class="st-{{.Status}}">{{id .Status}}{{if ne .Status "ok"}} <span class="en">/ {{en .Status}}</span>{{end}}</td>
+      <td>{{if eq .BaitConsumption "none"}}Tidak ada aktivitas <span class="en">/ No activity</span>{{else}}{{id .BaitConsumption}} <span class="en">/ {{en .BaitConsumption}}</span>{{end}}</td>
+      <td>{{str .Finding}}</td></tr>
+  {{end}}
+</table>
+{{else}}<div class="empty">Tidak ada alat monitoring yang diperiksa / No monitoring equipment checked.</div>{{end}}
+
+{{if $R.Attachments}}
+<h2>DOKUMENTASI <span class="en">(Documentation)</span></h2>
+<div class="photos">{{range $R.Attachments}}{{with call $img .ID}}<figure><img src="{{.}}"></figure>{{end}}{{end}}</div>
+{{end}}
+
+{{with $R.Notes}}<h2>CATATAN <span class="en">(Notes)</span></h2><p>{{.}}</p>{{end}}
+
+<h2>6. VALIDASI DIGITAL <span class="en">(Digital Validation)</span></h2>
+<div class="sign">
+  {{range $R.Signatures}}{{if eq .SignerRole "pic"}}
+  <div>Pelanggan <span class="en">/ Customer</span>{{with call $img .ID}}<br><img src="{{.}}">{{end}}
+    <div class="line">{{.SignerName}}</div><small>Ditandatangani / Signed {{stamp .SignedAt}}</small></div>
+  {{end}}{{end}}
+  {{range $R.Signatures}}{{if eq .SignerRole "technician"}}
+  <div>Teknisi <span class="en">/ Technician</span>{{with call $img .ID}}<br><img src="{{.}}">{{end}}
+    <div class="line">{{.SignerName}}</div><small>Ditandatangani / Signed {{stamp .SignedAt}}</small></div>
+  {{end}}{{end}}
+</div>
+{{else}}
+<div class="empty">Kunjungan belum dilaksanakan / Visit not yet performed.</div>
+{{end}}
+
+<footer>{{.Company}} &middot; Laporan ini dibuat secara digital / This report was generated digitally.</footer>
+</body>
+</html>
