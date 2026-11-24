@@ -9,15 +9,18 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png', 'favicon.ico', 'favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['logo.png', 'emblem.svg', 'favicon.ico', 'favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Propestindo - Laporan Pest Control',
+        lang: 'id',
         short_name: 'Propestindo',
         description: 'Sistem laporan kunjungan pest control Propestindo',
-        theme_color: '#14532d',
+        theme_color: '#062616',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/app/',
+        orientation: 'portrait',
+        shortcuts: [{ name: 'Jadwal teknisi', url: '/app/tech' }, { name: 'Dashboard admin', url: '/app/dashboard' }],
         scope: '/app/',
         id: '/app/',
         icons: [
@@ -28,6 +31,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Font & ikon ikut di-cache supaya aplikasi teknisi tetap terbuka saat offline.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         // Data API tidak di-cache oleh service worker; hanya aset aplikasi.
         navigateFallback: '/app/index.html',
         navigateFallbackDenylist: [/^\/api/],

@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'ui.dart';
+
 /// Dropdown sederhana dari daftar map {id, label}.
 class Pick extends StatelessWidget {
   const Pick({super.key, required this.label, required this.value, required this.items, required this.onChanged, this.allowEmpty = false});
@@ -66,15 +68,20 @@ Future<Map<String, dynamic>?> editSheet(
     useSafeArea: true,
     builder: (c) => StatefulBuilder(
       builder: (c, set) => Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(c).viewInsets.bottom + 16),
+        padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(c).viewInsets.bottom + 20),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(title, style: Theme.of(c).textTheme.titleLarge),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               ...build(m, set),
-              if (error != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(error!, style: const TextStyle(color: Colors.red))),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Notice(icon: Icons.error_outline, text: error!, tone: Tone.danger),
+                ),
+              const SizedBox(height: 4),
               FilledButton(
                 onPressed: () {
                   final err = validate?.call(m);

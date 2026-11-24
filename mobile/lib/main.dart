@@ -6,6 +6,7 @@ import 'data/local_db.dart';
 import 'data/sync.dart';
 import 'screens/login_screen.dart';
 import 'screens/visit_list_screen.dart';
+import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,10 +25,7 @@ class PropestindoApp extends StatelessWidget {
     return MaterialApp(
       title: 'Propestindo Teknisi',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1F7A3A)),
-        inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder(), isDense: true),
-      ),
+      theme: buildTheme(),
       home: Api.instance.token == null ? const LoginScreen() : const VisitListScreen(),
     );
   }

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><g transform="translate(-21.634,-21.634) scale(3.60563)">
+<defs>
+ <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#F5CF45"/><stop offset="0.5" stop-color="#E2B22B"/><stop offset="1" stop-color="#B8861A"/>
+ </linearGradient>
+ <linearGradient id="gold2" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#F2CB42"/><stop offset="0.6" stop-color="#DCAA28"/><stop offset="1" stop-color="#B08016"/>
+ </linearGradient>
+ <linearGradient id="red" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F01818"/><stop offset="1" stop-color="#D50000"/></linearGradient>
+ <linearGradient id="green" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22C51E"/><stop offset="1" stop-color="#12A912"/></linearGradient>
+</defs>
+<!-- green C with arrow tip -->
+<path fill="url(#green)" d="M33 22 L48 49 L54 49 L60 61 L37 61 L30.6 47.6
+  A56 56 0 0 0 23.5 90 L67 90 L73 102 L11.3 102 A70 70 0 0 1 33 22 Z"/>
+<!-- red P -->
+<path fill="url(#red)" d="M43.5 15.6 A70 70 0 0 1 145.2 61 L85 61 L80 49 L125.5 49
+  A56 56 0 0 0 62 23 L78 61 L63 61 Z"/>
+<!-- red lower diagonal -->
+<path fill="url(#red)" d="M75 90 L89 90 L109.5 138 L93 131 Z"/>
+<!-- gold right arrow: top bar + right arc + inner chevron -->
+<path fill="url(#gold)" d="M56 68 L146.3 68 A70 70 0 0 1 118 133.6 L108 106 L99 90 L116 90 L122 104
+  A56 56 0 0 0 132.3 82 L63 82 Z"/>
+
+<!-- gold bottom arc -->
+<path fill="url(#gold2)" d="M18.5 113.5 L36.5 113.5 A56 56 0 0 0 91 128.6 L109.5 138 A70 70 0 0 1 18.5 113.5 Z"/>
+</g></svg>
