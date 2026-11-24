@@ -20,7 +20,7 @@ Nama file dipakai oleh fitur update server dan aplikasi HP, jadi jangan diganti.
 
 ## 1. Persiapan sekali saja
 
-**Di komputer build:** Go (versi di `backend/go.mod`), Node 22, Flutter stable + Android SDK, JDK 17,
+**Di komputer build:** Go (versi di `backend/go.mod`), Node 22, Flutter stable + Android SDK, JDK 21,
 `rsync`, dan GitHub CLI yang sudah login (`gh auth login`).
 
 **Keystore Android.** Android hanya mau memasang update jika APK baru ditandatangani dengan key yang

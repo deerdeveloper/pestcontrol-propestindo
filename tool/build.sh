@@ -80,7 +80,7 @@ build_android() {
   step "Android: APK + AAB"
   : "${API_URL:?Isi API_URL (mis. https://laporan.domain.com) di env atau tool/build.env}"
   need flutter "pasang Flutter"
-  need java "pasang JDK 17"
+  need java "pasang JDK 21"
   local dir="$ROOT/.build/mobile"
   rm -rf "$dir" && mkdir -p "$dir"
   # Awalan "/" supaya pengecualian hanya berlaku di akar mobile/.

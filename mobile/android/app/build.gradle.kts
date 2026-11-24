@@ -56,6 +56,13 @@ android {
         }
     }
 
+    // Lint saat build rilis dimatikan: lint AGP bisa crash pada kode plugin (mis. image_picker_android)
+    // dan tidak memengaruhi isi APK. Jalankan `./gradlew lint` terpisah bila perlu.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
     buildTypes {
         release {
             // Tanpa key.properties, APK rilis memakai debug key (hanya untuk coba-coba).

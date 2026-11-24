@@ -125,3 +125,14 @@ Semua endpoint di bawah `/api` memakai header `Authorization: Bearer <token>`.
 | `GET /version` | publik | Versi server |
 | `GET /app/android`, `/app/android/apk` | publik | Info dan unduhan APK terbaru |
 | `GET /system/update`, `POST /system/update/check`, `/apply`, `PUT /system/update/settings` | super admin | Update server |
+
+## Ikon aplikasi
+
+Emblem Propestindo digambar ulang sebagai vektor di `tool/gen_icons.py`
+(hasil SVG ada di `design/icon/`). Semua ikon Android (termasuk adaptive icon),
+iOS, PWA (any + maskable), apple-touch-icon, dan favicon dibuat dari situ:
+
+```bash
+pip install cairosvg pillow
+python3 tool/gen_icons.py all
+```
