@@ -39,8 +39,9 @@ docker compose up -d --build
 docker compose exec api seed -demo     # akun dan data contoh
 ```
 
-- Web: http://localhost:8081
-- API: http://localhost:8080
+- Landing page publik: http://localhost:8080/ (juga lewat http://localhost:8081/)
+- Aplikasi web (admin, supervisor, portal pelanggan): http://localhost:8081/app/ atau http://localhost:8080/app/ bila web ikut tertanam
+- API: http://localhost:8080/api
 
 Akun dari `seed -demo`:
 
@@ -76,8 +77,15 @@ Environment variable: `APP_ADDR`, `DATABASE_URL`, `JWT_SECRET`, `JWT_TTL`, `STOR
 ```bash
 cd web
 npm install
-npm run dev        # http://localhost:5173, request /api diteruskan ke :8080
+npm run dev        # http://localhost:5173/app/, request /api dan /site diteruskan ke :8080
 ```
+
+### Landing page & alamat aplikasi
+
+- `/` : landing page publik Propestindo (company profile). File statisnya ada di `backend/internal/landing/static/` (index.html, style.css, main.js, logo.svg) dan selalu tertanam di binary, jadi tidak perlu build Node. Ubah konten (nomor WhatsApp, alamat, layanan, harga) langsung di file tersebut; nomor tujuan formulir ada di `main.js` (variabel `WA`).
+- `/app/` : aplikasi web Vue (login, dashboard, portal pelanggan). PWA-nya ber-scope `/app/`.
+- `/api/` : REST API (tidak berubah, aplikasi HP tidak terpengaruh).
+- Alamat lama (`/login`, `/dashboard`, `/portal`, `/visits/...`, dll.) otomatis dialihkan ke `/app/...`. `/sw.js` lama diganti service worker "pembersih" agar browser yang pernah memasang PWA lama langsung menampilkan landing page baru.
 
 **Mobile**:
 

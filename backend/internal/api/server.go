@@ -16,6 +16,7 @@ import (
 	"github.com/propestindo/pestcontrol/internal/auth"
 	"github.com/propestindo/pestcontrol/internal/config"
 	"github.com/propestindo/pestcontrol/internal/httpx"
+	"github.com/propestindo/pestcontrol/internal/landing"
 	"github.com/propestindo/pestcontrol/internal/pdf"
 	"github.com/propestindo/pestcontrol/internal/storage"
 	"github.com/propestindo/pestcontrol/internal/updater"
@@ -39,7 +40,8 @@ func NewServer(cfg config.Config, db *pgxpool.Pool, store storage.Store, rendere
 // WithUpdater memasang updater binary (fitur update dari halaman super admin dan update APK).
 func (s *Server) WithUpdater(u *updater.Updater) *Server { s.updater = u; return s }
 
-// WithWeb menyajikan aplikasi web di "/" (web yang tertanam di binary).
+// WithWeb menyajikan aplikasi web di "/app/" (web yang tertanam di binary).
+// Halaman publik (landing page) selalu disajikan di "/".
 func (s *Server) WithWeb(h http.Handler) *Server { s.web = h; return s }
 
 func (s *Server) Routes() http.Handler {
@@ -57,8 +59,12 @@ func (s *Server) Routes() http.Handler {
 	r.Method(http.MethodGet, "/api/app/android", h(s.androidLatest))
 	r.Method(http.MethodGet, "/api/app/android/apk", h(s.androidAPK))
 	if s.web != nil {
-		r.NotFound(s.web.ServeHTTP)
+		r.Get("/app", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/app/", http.StatusMovedPermanently)
+		})
+		r.Handle("/app/*", http.StripPrefix("/app", s.web))
 	}
+	r.NotFound(landing.Handler().ServeHTTP)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.auth.Middleware)

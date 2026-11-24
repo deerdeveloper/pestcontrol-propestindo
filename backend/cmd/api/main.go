@@ -78,7 +78,7 @@ func main() {
 		WithUpdater(upd)
 	if web := webui.Handler(); web != nil {
 		srv.WithWeb(web)
-		log.Printf("aplikasi web tertanam ikut disajikan di /")
+		log.Printf("aplikasi web tertanam ikut disajikan di /app/ (landing page di /)")
 	}
 	srv.LoadSettings(ctx)
 	go upd.Run(ctx)

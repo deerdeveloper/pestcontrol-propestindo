@@ -21,7 +21,7 @@ export async function api(path, { method = 'GET', body, form } = {}) {
   })
   if (res.status === 401 && path !== '/auth/login') {
     setToken(null)
-    location.href = '/login'
+    location.href = import.meta.env.BASE_URL + 'login'
     return
   }
   if (res.status === 204) return null

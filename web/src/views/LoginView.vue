@@ -32,6 +32,7 @@ async function submit() {
       <p v-if="error" class="error">{{ error }}</p>
       <button class="primary" :disabled="busy">Masuk</button>
       <small class="muted">Teknisi memakai aplikasi HP Propestindo.</small>
+      <a class="muted back-home" href="/">&larr; Kembali ke beranda</a>
     </form>
   </div>
 </template>

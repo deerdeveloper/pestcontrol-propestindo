@@ -1,4 +1,5 @@
 // Package webui menyajikan aplikasi web Vue yang ikut tertanam di binary.
+// Server memasangnya di /app/ (prefix sudah dibuang sebelum sampai ke handler ini).
 // Folder dist diisi oleh `make build-server` (salinan web/dist). Jika kosong,
 // binary tetap jalan sebagai API saja dan web disajikan terpisah (nginx / Docker).
 package webui
@@ -6,6 +7,7 @@ package webui
 import (
 	"embed"
 	"io/fs"
+	"mime"
 	"net/http"
 	"path"
 	"strings"
@@ -13,6 +15,8 @@ import (
 
 //go:embed all:dist
 var dist embed.FS
+
+func init() { mime.AddExtensionType(".webmanifest", "application/manifest+json") }
 
 // Handler mengembalikan handler web, atau nil jika web tidak ikut di-build.
 func Handler() http.Handler {
@@ -44,7 +48,7 @@ func Handler() http.Handler {
 				return
 			}
 		}
-		// Rute SPA (misalnya /visits/123) selalu dijawab dengan index.html.
+		// Rute SPA (misalnya /app/visits/123) selalu dijawab dengan index.html.
 		r2 := r.Clone(r.Context())
 		r2.URL.Path = "/"
 		w.Header().Set("Cache-Control", "no-cache")
