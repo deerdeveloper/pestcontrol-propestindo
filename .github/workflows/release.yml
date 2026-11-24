@@ -76,12 +76,12 @@ jobs:
       - uses: subosito/flutter-action@v2
         with: { channel: stable, cache: true }
       - name: Cache pub (paket Dart)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.PUB_CACHE || '~/.pub-cache' }}
           key: pub-${{ runner.os }}-${{ hashFiles('mobile/pubspec.yaml') }}
           restore-keys: pub-${{ runner.os }}-
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/gdist
