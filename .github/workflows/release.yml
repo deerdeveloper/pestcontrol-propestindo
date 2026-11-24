@@ -41,7 +41,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version-file: backend/go.mod
@@ -70,7 +70,7 @@ jobs:
     env:
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # JDK 21: lint Android Gradle Plugin memakai API Java 21 (List.removeLast); dengan JDK 17 build crash
       # di lintVitalAnalyzeRelease (image_picker_android).
       - uses: actions/setup-java@v4
