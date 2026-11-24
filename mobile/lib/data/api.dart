@@ -8,9 +8,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 const defaultApiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:8080');
 
 class ApiException implements Exception {
-  ApiException(this.message, {this.status});
+  ApiException(this.message, {this.status, this.code});
   final String message;
   final int? status;
+
+  /// Kode error tetap dari server (mis. `report_locked`), jika ada.
+  final String? code;
 
   /// true jika gagal karena jaringan (perlu dicoba lagi nanti), bukan karena data ditolak server.
   bool get isNetwork => status == null;
@@ -19,12 +22,44 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Mengubah DioException menjadi pesan yang bisa dipahami teknisi.
+ApiException apiErrorFrom(DioException e) {
+  final r = e.response;
+  if (r == null) {
+    final msg = switch (e.type) {
+      DioExceptionType.connectionTimeout => 'Server tidak menjawab (koneksi habis waktu)',
+      DioExceptionType.sendTimeout => 'Upload terlalu lama, sinyal lemah. Akan dicoba lagi',
+      DioExceptionType.receiveTimeout => 'Server terlalu lama membalas. Akan dicoba lagi',
+      DioExceptionType.badCertificate => 'Sertifikat HTTPS server tidak valid',
+      _ => 'Tidak ada koneksi ke server',
+    };
+    return ApiException(msg);
+  }
+  final code = r.statusCode;
+  if (r.data is Map) {
+    final m = r.data as Map;
+    return ApiException((m['error'] ?? 'Gagal ($code)').toString(), status: code, code: m['code']?.toString());
+  }
+  // Balasan bukan JSON biasanya datang dari reverse proxy (nginx, Cloudflare), bukan dari aplikasi.
+  final msg = switch (code) {
+    413 => 'File terlalu besar untuk server/proxy (413). Naikkan batas upload, mis. client_max_body_size 20m di nginx',
+    502 || 503 || 504 => 'Server sedang tidak bisa dihubungi ($code)',
+    404 => 'Alamat server salah atau API tidak ditemukan (404). Cek alamat server di halaman login',
+    _ => 'Gagal ($code)',
+  };
+  return ApiException(msg, status: code);
+}
+
 /// Klien REST API backend Go.
 class Api {
   Api._();
   static final Api instance = Api._();
 
-  final Dio _dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 10), receiveTimeout: const Duration(seconds: 60)));
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 15),
+    sendTimeout: const Duration(seconds: 90),
+    receiveTimeout: const Duration(seconds: 60),
+  ));
   String baseUrl = defaultApiUrl;
   String? token;
 
@@ -51,10 +86,7 @@ class Api {
       );
       return res.data;
     } on DioException catch (e) {
-      final r = e.response;
-      if (r == null) throw ApiException('Tidak ada koneksi ke server');
-      final msg = r.data is Map ? (r.data['error'] ?? 'Gagal (${r.statusCode})') : 'Gagal (${r.statusCode})';
-      throw ApiException(msg.toString(), status: r.statusCode);
+      throw apiErrorFrom(e);
     }
   }
 
@@ -68,6 +100,7 @@ class Api {
   }
 
   Future<Map<String, dynamic>> login(String url, String email, String password) async {
+    url = url.trim().replaceAll(RegExp(r'/+$'), '');
     baseUrl = url;
     final res = await post('/auth/login', {'email': email, 'password': password}) as Map<String, dynamic>;
     final user = res['user'] as Map<String, dynamic>;

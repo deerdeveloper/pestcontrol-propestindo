@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:geolocator/geolocator.dart';
@@ -9,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import '../data/api.dart';
 import '../data/local_db.dart';
 import '../data/repository.dart';
+import '../data/sync.dart';
 import '../labels.dart';
 import '../widgets/forms.dart';
 import 'scan_screen.dart';
@@ -39,14 +41,34 @@ class _VisitScreenState extends State<VisitScreen> {
   List<Map<String, dynamic>> list(String k) => (d[k] as List).cast<Map<String, dynamic>>();
   Map<String, dynamic> get sigs => d['signatures'] as Map<String, dynamic>;
 
+  /// Server sudah menerima laporan (menunggu review atau sudah terbit).
+  bool get delivered => status == 'pending_review' || status == 'published';
+
   /// Laporan terkunci setelah dikirim, atau setelah PIC tanda tangan.
   bool get locked =>
       d['submitted'] == true || sigs['pic'] != null || status == 'pending_review' || status == 'published' || status == 'cancelled';
 
+  int _lastPending = 0;
+
   @override
   void initState() {
     super.initState();
+    _lastPending = SyncService.instance.stateOf(visitId).pending;
+    SyncService.instance.addListener(_onSync);
     _load();
+  }
+
+  @override
+  void dispose() {
+    SyncService.instance.removeListener(_onSync);
+    super.dispose();
+  }
+
+  /// Antrian kunjungan ini habis terkirim di latar belakang: ambil status terbaru dari server.
+  void _onSync() {
+    final p = SyncService.instance.stateOf(visitId).pending;
+    if (_lastPending > 0 && p == 0) _refreshStatus();
+    _lastPending = p;
   }
 
   Future<void> _load() async {
@@ -258,14 +280,17 @@ class _VisitScreenState extends State<VisitScreen> {
 
   Future<void> _submit() async {
     if (sigs['technician'] == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tanda tangan teknisi wajib diisi')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tanda tangan teknisi wajib diisi sebelum laporan dikirim')));
       return;
     }
+    final resend = d['submitted'] == true;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Kirim laporan?'),
-        content: const Text('Setelah dikirim, laporan tidak bisa diubah kecuali dikembalikan admin untuk revisi.'),
+        title: Text(resend ? 'Kirim ulang laporan?' : 'Kirim laporan?'),
+        content: Text(resend
+            ? 'Server belum menerima laporan ini. Semua isi, foto, dan tanda tangan akan dikirim ulang.'
+            : 'Setelah dikirim, laporan tidak bisa diubah kecuali dikembalikan admin untuk revisi.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
           FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Kirim')),
@@ -273,10 +298,81 @@ class _VisitScreenState extends State<VisitScreen> {
       ),
     );
     if (ok != true) return;
-    await repo.submit(visitId, d);
+    await repo.submit(visitId, d, resend: resend);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Laporan disimpan dan akan terkirim saat ada sinyal')));
-    Navigator.pop(context);
+    setState(() {});
+    await _sendNow();
+  }
+
+  /// Mengirim antrian kunjungan ini sekarang dan menunggu hasilnya, lalu memberi tahu teknisi.
+  Future<void> _sendNow() async {
+    final sync = SyncService.instance;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(child: Text('Mengirim laporan ke server...')),
+          ]),
+        ),
+      ),
+    );
+    VisitSyncState st;
+    var slow = false;
+    try {
+      st = await sync.flushVisit(visitId).timeout(const Duration(minutes: 3));
+    } on TimeoutException {
+      st = sync.stateOf(visitId);
+      slow = true;
+    } catch (e) {
+      st = VisitSyncState(pending: sync.stateOf(visitId).pending, error: '$e');
+    }
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // tutup dialog proses
+
+    if (st.done) {
+      await _refreshStatus();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Laporan terkirim. Status: menunggu review admin.'), backgroundColor: Colors.green),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
+    final retry = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        icon: Icon(st.offline || slow ? Icons.cloud_off : Icons.error_outline, color: st.offline || slow ? Colors.orange : Colors.red),
+        title: Text(st.offline || slow ? 'Laporan belum terkirim' : 'Laporan ditolak server'),
+        content: Text([
+          if (slow) 'Pengiriman masih berjalan lebih dari 3 menit (sinyal lemah).'
+          else if (st.offline) 'Tidak bisa terhubung ke server.',
+          if (st.error != null) st.error!,
+          'Data laporan aman tersimpan di HP (${st.pending} data menunggu). '
+              '${st.offline || slow ? 'Aplikasi akan mencoba lagi otomatis saat ada sinyal.' : 'Perbaiki masalahnya lalu tekan Coba lagi, atau hubungi admin.'}',
+        ].join('\n\n')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Tutup')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Coba lagi')),
+        ],
+      ),
+    );
+    if (retry == true && mounted) await _sendNow();
+  }
+
+  /// Mengambil status terbaru kunjungan dari server setelah terkirim.
+  Future<void> _refreshStatus() async {
+    try {
+      final b = await repo.bundle(visitId);
+      if (mounted) setState(() => doc = b['document'] as Map<String, dynamic>);
+    } catch (_) {
+      // Tidak masalah: status akan diperbarui saat daftar jadwal dimuat ulang.
+    }
   }
 
   // ---------- Tampilan ----------
@@ -298,7 +394,14 @@ class _VisitScreenState extends State<VisitScreen> {
         ),
         body: Column(children: [
           const SyncBanner(),
-          if (locked) MaterialBanner(content: Text(d['submitted'] == true || status == 'pending_review' ? 'Laporan sudah dikirim.' : 'Laporan terkunci setelah tanda tangan PIC.'), actions: const [SizedBox.shrink()]),
+          if (locked)
+            ListenableBuilder(
+              listenable: SyncService.instance,
+              builder: (context, _) => MaterialBanner(
+                content: Text(_lockText(SyncService.instance.stateOf(visitId))),
+                actions: const [SizedBox.shrink()],
+              ),
+            ),
           if (!checkedIn && !locked)
             Padding(padding: const EdgeInsets.all(12), child: FilledButton.icon(onPressed: _checkIn, icon: const Icon(Icons.login), label: const Text('Check-in di lokasi'))),
           Expanded(
@@ -327,6 +430,15 @@ class _VisitScreenState extends State<VisitScreen> {
         ]),
       ),
     );
+  }
+
+  String _lockText(VisitSyncState st) {
+    if (status == 'published') return 'Laporan sudah terbit.';
+    if (delivered) return 'Laporan sudah diterima server, menunggu review admin.';
+    if (d['submitted'] == true) {
+      return st.pending > 0 ? 'Laporan belum terkirim ke server. Buka tab Selesai untuk mengirim.' : 'Laporan belum diterima server. Buka tab Selesai untuk kirim ulang.';
+    }
+    return 'Laporan terkunci setelah tanda tangan PIC. Buka tab Selesai untuk mengirim.';
   }
 
   Widget _info() {
@@ -418,7 +530,7 @@ class _VisitScreenState extends State<VisitScreen> {
           leading: s == null ? const Icon(Icons.draw) : Image.file(File(s['path'] as String), width: 72),
           title: Text(label),
           subtitle: Text(s == null ? 'Belum tanda tangan' : s['name'] as String),
-          trailing: d['checked_in'] == true && d['submitted'] != true && status != 'pending_review' && status != 'published' &&
+          trailing: d['checked_in'] == true && d['submitted'] != true && !delivered &&
                   (role == 'technician' || s == null || canEdit)
               ? TextButton(onPressed: () => _sign(role), child: Text(s == null ? 'Tanda tangan' : 'Ulangi'))
               : null,
@@ -450,8 +562,49 @@ class _VisitScreenState extends State<VisitScreen> {
       const SizedBox(height: 8),
       const Text('Setelah PIC tanda tangan, isi laporan terkunci.', style: TextStyle(color: Colors.grey)),
       const SizedBox(height: 16),
-      if (d['checked_in'] == true && d['submitted'] != true && status != 'pending_review' && status != 'published')
-        FilledButton.icon(onPressed: _submit, icon: const Icon(Icons.send), label: const Text('Kirim laporan')),
+      ListenableBuilder(listenable: SyncService.instance, builder: (context, _) => _sendSection()),
     ]);
+  }
+
+  /// Status pengiriman dan tombol kirim / coba lagi.
+  Widget _sendSection() {
+    final sync = SyncService.instance;
+    final st = sync.stateOf(visitId);
+    if (delivered) {
+      return Card(
+        color: Colors.green.shade50,
+        child: ListTile(
+          leading: const Icon(Icons.cloud_done, color: Colors.green),
+          title: Text(status == 'published' ? 'Laporan sudah terbit' : 'Laporan sudah diterima server'),
+          subtitle: status == 'published' ? null : const Text('Menunggu review admin'),
+        ),
+      );
+    }
+    if (d['checked_in'] != true) return const SizedBox.shrink();
+    if (d['submitted'] != true) {
+      return FilledButton.icon(onPressed: _submit, icon: const Icon(Icons.send), label: const Text('Kirim laporan'));
+    }
+    if (st.pending > 0) {
+      return Card(
+        color: st.error != null && !st.offline ? Colors.red.shade50 : Colors.amber.shade50,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              sync.running
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(st.offline ? Icons.cloud_off : Icons.cloud_upload, color: Colors.orange),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Laporan belum terkirim ke server (${st.pending} data menunggu)', style: const TextStyle(fontWeight: FontWeight.w600))),
+            ]),
+            if (st.error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(st.error!)),
+            const SizedBox(height: 8),
+            FilledButton.icon(onPressed: sync.running ? null : _sendNow, icon: const Icon(Icons.refresh), label: Text(sync.running ? 'Sedang mengirim...' : 'Coba kirim lagi')),
+          ]),
+        ),
+      );
+    }
+    // Pernah dikirim, antrian kosong, tapi server belum mencatatnya.
+    return FilledButton.icon(onPressed: _submit, icon: const Icon(Icons.send), label: const Text('Kirim ulang laporan'));
   }
 }

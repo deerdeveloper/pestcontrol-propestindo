@@ -22,10 +22,15 @@ import (
 // startVisit dipanggil teknisi saat check-in di lokasi. Aman dipanggil ulang (offline retry).
 func (s *Server) startVisit(w http.ResponseWriter, r *http.Request) error {
 	v, err := s.visitFor(r, func(u auth.User, v visitInfo) bool {
-		return v.Status == "scheduled" || v.Status == "in_progress" || v.Status == "revision"
+		return v.Status == "scheduled" || v.Status == "in_progress" || v.Status == "revision" ||
+			v.Status == "pending_review" || v.Status == "published"
 	})
 	if err != nil {
 		return err
+	}
+	if v.Status == "pending_review" || v.Status == "published" {
+		// Check-in yang terkirim ulang setelah laporan dikirim: tidak ada yang perlu diubah.
+		return s.writeDocument(w, r.Context(), v.ID, http.StatusOK)
 	}
 	var in struct {
 		StartedAt *time.Time `json:"started_at"`
@@ -114,7 +119,10 @@ func (s *Server) saveReport(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		if signed {
-			return httpx.E(http.StatusConflict, "laporan sudah ditandatangani PIC dan terkunci")
+			// Aplikasi selalu mengirim isi laporan sebelum tanda tangan PIC, jadi isi yang
+			// tersimpan di server sudah versi terakhir. Kode ini membuat aplikasi tahu
+			// bahwa pengiriman ulang boleh dilewati.
+			return httpx.EC(http.StatusConflict, "report_locked", "laporan sudah ditandatangani PIC dan terkunci")
 		}
 	}
 	var in reportInput
@@ -259,9 +267,17 @@ func (s *Server) uploadSignature(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) submitVisit(w http.ResponseWriter, r *http.Request) error {
-	v, err := s.visitFor(r, canEditReport)
+	v, err := s.visitFor(r, nil)
 	if err != nil {
 		return err
+	}
+	// Aman dipanggil ulang: jika kiriman sebelumnya sudah sampai tapi balasannya hilang
+	// (sinyal putus), aplikasi akan mengulang. Jangan sampai antrian di HP macet karena itu.
+	if v.Status == "pending_review" || v.Status == "published" {
+		return s.writeDocument(w, r.Context(), v.ID, http.StatusOK)
+	}
+	if !canEditReport(auth.FromContext(r.Context()), v) {
+		return httpx.E(http.StatusConflict, "kunjungan dengan status '"+v.Status+"' tidak bisa dikirim")
 	}
 	if v.ReportID == nil {
 		return httpx.E(http.StatusConflict, "kunjungan belum dimulai (check-in)")

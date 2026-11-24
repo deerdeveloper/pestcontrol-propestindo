@@ -14,11 +14,16 @@ import (
 type Error struct {
 	Status  int    `json:"-"`
 	Message string `json:"error"`
+	// Code adalah kode error tetap yang bisa dibaca aplikasi (pesan bisa berubah).
+	Code string `json:"code,omitempty"`
 }
 
 func (e *Error) Error() string { return e.Message }
 
 func E(status int, msg string) *Error { return &Error{Status: status, Message: msg} }
+
+// EC sama seperti E, ditambah kode error tetap untuk aplikasi.
+func EC(status int, code, msg string) *Error { return &Error{Status: status, Message: msg, Code: code} }
 
 var (
 	ErrNotFound     = E(http.StatusNotFound, "data tidak ditemukan")

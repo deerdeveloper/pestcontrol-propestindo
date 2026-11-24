@@ -88,7 +88,11 @@ class Repository {
   }
 
   /// Mengantrikan seluruh laporan: isi, foto, tanda tangan, lalu kirim untuk review.
-  Future<void> submit(String visitId, Map<String, dynamic> d) async {
+  ///
+  /// [resend] dipakai bila laporan pernah dikirim tetapi server belum menerimanya dan antrian
+  /// di HP sudah kosong (misal data antrian hilang): semua foto dan tanda tangan diantrikan lagi.
+  /// Aman diulang karena server mengabaikan data yang sudah ada.
+  Future<void> submit(String visitId, Map<String, dynamic> d, {bool resend = false}) async {
     d['finished_at'] ??= DateTime.now().toUtc().toIso8601String();
     await _db.enqueue(visitId, 'report', {
       'pic_name': d['pic_name'],
@@ -101,20 +105,19 @@ class Repository {
       'station_checks': d['station_checks'],
     });
     for (final ph in (d['photos'] as List).cast<Map<String, dynamic>>()) {
-      if (ph['queued'] == true) continue;
-      await _db.enqueue(visitId, 'attachment', ph);
+      if (ph['queued'] == true && !resend) continue;
+      await _db.enqueue(visitId, 'attachment', {...ph}..remove('queued'));
       ph['queued'] = true;
     }
     final sigs = d['signatures'] as Map<String, dynamic>;
     for (final role in ['technician', 'pic']) {
       final s = sigs[role] as Map<String, dynamic>?;
-      if (s == null || s['queued'] == true) continue;
+      if (s == null || (s['queued'] == true && !resend)) continue;
       await _db.enqueue(visitId, 'signature', {'role': role, 'name': s['name'], 'path': s['path'], 'signed_at': s['signed_at']});
       s['queued'] = true;
     }
     await _db.enqueue(visitId, 'submit', {});
     d['submitted'] = true;
     await _db.saveDraft(visitId, d);
-    SyncService.instance.run();
   }
 }

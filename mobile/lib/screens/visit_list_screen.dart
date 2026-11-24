@@ -123,7 +123,21 @@ class _VisitListScreenState extends State<VisitListScreen> {
               title: Text('${v['customer_name']}'),
               subtitle: Text('${v['site_name']}\n${date.format(DateTime.parse(v['scheduled_date'] as String))} · ${visitTypes[v['visit_type']]}'),
               isThreeLine: true,
-              trailing: StatusChip(v['status'] as String),
+              trailing: ListenableBuilder(
+                listenable: SyncService.instance,
+                builder: (context, _) {
+                  final st = SyncService.instance.stateOf(v['id'] as String);
+                  return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    StatusChip(v['status'] as String),
+                    if (st.pending > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(st.error != null && !st.offline ? 'Gagal terkirim' : 'Belum terkirim',
+                            style: TextStyle(fontSize: 11, color: st.error != null && !st.offline ? Colors.red : Colors.orange.shade800)),
+                      ),
+                  ]);
+                },
+              ),
               onTap: () async {
                 await Navigator.of(context).push(MaterialPageRoute(builder: (_) => VisitScreen(visit: v as Map<String, dynamic>)));
                 _load();
@@ -166,14 +180,17 @@ class SyncBanner extends StatelessWidget {
     return ListenableBuilder(
       listenable: sync,
       builder: (context, _) {
-        if (sync.pending == 0 && sync.lastError == null) return const SizedBox.shrink();
+        if (sync.pending == 0) return const SizedBox.shrink();
+        final rejected = sync.lastError != null && !sync.offline;
         return Material(
-          color: sync.lastError != null ? Colors.amber.shade100 : Colors.blue.shade50,
+          color: rejected ? Colors.red.shade50 : Colors.amber.shade100,
           child: ListTile(
             dense: true,
-            leading: sync.running ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.cloud_upload),
-            title: Text('${sync.pending} data menunggu terkirim'),
-            subtitle: sync.lastError != null ? Text(sync.lastError!) : null,
+            leading: sync.running
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : Icon(sync.offline ? Icons.cloud_off : (rejected ? Icons.error_outline : Icons.cloud_upload)),
+            title: Text('${sync.pending} data belum terkirim ke server'),
+            subtitle: Text(sync.lastError ?? (sync.running ? 'Sedang mengirim...' : 'Tekan Kirim untuk mencoba sekarang')),
             trailing: TextButton(onPressed: sync.running ? null : sync.run, child: const Text('Kirim')),
           ),
         );

@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import 'outbox.dart';
+
 /// Database lokal SQLite supaya aplikasi tetap bisa dipakai tanpa sinyal.
 ///
 /// - `cache`  : data dari server (katalog, daftar kunjungan, bundle lokasi) dalam bentuk JSON.
 /// - `drafts` : isian laporan yang sedang dikerjakan teknisi, per kunjungan.
 /// - `outbox` : antrian perubahan yang belum terkirim ke server, diproses berurutan.
-class LocalDb {
+class LocalDb implements OutboxStore {
   LocalDb._();
   static final LocalDb instance = LocalDb._();
   late Database _db;
@@ -47,20 +49,26 @@ class LocalDb {
     return rows.isEmpty ? null : jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
   }
 
+  @override
   Future<void> enqueue(String visitId, String kind, Map<String, dynamic> payload) => _db.insert(
       'outbox', {'visit_id': visitId, 'kind': kind, 'payload': jsonEncode(payload), 'created_at': _now});
 
-  Future<List<Map<String, Object?>>> outbox() => _db.query('outbox', orderBy: 'id');
+  @override
+  Future<List<OutboxItem>> outbox() async =>
+      [for (final r in await _db.query('outbox', orderBy: 'id')) OutboxItem.fromRow(r)];
 
+  @override
   Future<int> pendingCount([String? visitId]) async {
     final rows = await _db.rawQuery(
         'SELECT count(*) AS n FROM outbox${visitId == null ? '' : ' WHERE visit_id = ?'}', [?visitId]);
     return rows.first['n'] as int;
   }
 
+  @override
   Future<void> removeOutbox(int id) => _db.delete('outbox', where: 'id = ?', whereArgs: [id]);
 
-  Future<void> markOutboxError(int id, String error) =>
+  @override
+  Future<void> markOutboxError(int id, String? error) =>
       _db.update('outbox', {'error': error}, where: 'id = ?', whereArgs: [id]);
 
   Future<void> clearAll() async {
